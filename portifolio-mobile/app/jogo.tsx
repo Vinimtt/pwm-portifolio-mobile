@@ -1,239 +1,307 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Alert, ScrollView, ImageBackground } from 'react-native';
 import { Stack } from 'expo-router';
 
-const JOGO_INICIAL = [
-  [5, 3, 0, 0, 7, 0, 0, 0, 0],
-  [6, 0, 0, 1, 9, 5, 0, 0, 0],
-  [0, 9, 8, 0, 0, 0, 0, 6, 0],
-  [8, 0, 0, 0, 6, 0, 0, 0, 3],
-  [4, 0, 0, 8, 0, 3, 0, 0, 1],
-  [7, 0, 0, 0, 2, 0, 0, 0, 6],
-  [0, 6, 0, 0, 0, 0, 2, 8, 0],
-  [0, 0, 0, 4, 1, 9, 0, 0, 5],
-  [0, 0, 0, 0, 8, 0, 0, 7, 9],
+const PALAVRAS = [
+  'MAGRAO', 'DIEGO SOUZA', 'ILHA DO RETIRO', 'LEAO', 
+  'CAZA', 'RUBRO NEGRO', 'PERNAMBUCO', 'SERIE A',
+  'COPA DO BRASIL', 'CAMPEAO DE 87', 'BALADA'
 ];
 
-export default function JogoSudoku() {
-  const [tabuleiro, setTabuleiro] = useState<number[][]>(JSON.parse(JSON.stringify(JOGO_INICIAL)));
-  const [selecionado, setSelecionado] = useState<[number, number] | null>(null);
+export default function JogoForca() {
+  const [palavra, setPalavra] = useState('');
+  const [letrasAdivinhadas, setLetrasAdivinhadas] = useState<string[]>([]);
+  const [erros, setErros] = useState(0);
+  const [statusJogo, setStatusJogo] = useState<'jogando' | 'ganhou' | 'perdeu'>('jogando');
 
-  const ehJogadaValida = (board: number[][], linha: number, col: number, num: number) => {
-    for (let i = 0; i < 9; i++) {
-      if (board[linha][i] === num) return false;
-    }
+  const MAX_ERROS = 6;
 
-    for (let i = 0; i < 9; i++) {
-      if (board[i][col] === num) return false;
-    }
+  useEffect(() => {
+    iniciarJogo();
+  }, []);
 
-    const inicioLinha = Math.floor(linha / 3) * 3;
-    const inicioCol = Math.floor(col / 3) * 3;
+  const iniciarJogo = () => {
+    const palavraSorteada = PALAVRAS[Math.floor(Math.random() * PALAVRAS.length)];
+    setPalavra(palavraSorteada);
+    setLetrasAdivinhadas([]);
+    setErros(0);
+    setStatusJogo('jogando');
+  };
 
-    for (let i = 0; i < 3; i++) {
-      for (let j = 0; j < 3; j++) {
-        if (board[inicioLinha + i][inicioCol + j] === num) return false;
+  const chutarLetra = (letra: string) => {
+    if (statusJogo !== 'jogando' || letrasAdivinhadas.includes(letra)) return;
+
+    const novasLetras = [...letrasAdivinhadas, letra];
+    setLetrasAdivinhadas(novasLetras);
+
+    if (!palavra.includes(letra)) {
+      const novosErros = erros + 1;
+      setErros(novosErros);
+      if (novosErros >= MAX_ERROS) {
+        setStatusJogo('perdeu');
+        Alert.alert('Fim de Jogo, agora você tem que torcer pro santa 😂', `A palavra era: ${palavra}`);
       }
-    }
-
-    return true;
-  };
-
-  const verificarFimDeJogo = (board: number[][]) => {
-    for (let i = 0; i < 9; i++) {
-      for (let j = 0; j < 9; j++) {
-        if (board[i][j] === 0) return;
-      }
-    }
-    Alert.alert('Parabéns!', 'Você completou o Sudoku!');
-  };
-
-  const reiniciarJogo = () => {
-    setTabuleiro(JSON.parse(JSON.stringify(JOGO_INICIAL)));
-    setSelecionado(null);
-  };
-
-  const preencherNumero = (numero: number | null) => {
-    if (!selecionado) return;
-
-    const [linha, col] = selecionado;
-
-    if (JOGO_INICIAL[linha][col] !== 0) {
-      Alert.alert('Ação inválida', 'Você não pode alterar os números fixos.');
-      return;
-    }
-
-    if (numero === null) {
-      const novoTabuleiro = [...tabuleiro];
-      novoTabuleiro[linha] = [...novoTabuleiro[linha]];
-      novoTabuleiro[linha][col] = 0;
-      setTabuleiro(novoTabuleiro);
-      return;
-    }
-
-    if (!ehJogadaValida(tabuleiro, linha, col, numero)) {
-      Alert.alert(
-        'Movimento Inválido', 
-        `O número ${numero} já existe nesta linha, coluna ou quadrante!`
+    } else {
+      const ganhou = palavra.split('').every(char => 
+        char === ' ' || novasLetras.includes(char)
       );
-      return;
+      if (ganhou) {
+        setStatusJogo('ganhou');
+        Alert.alert('Pelo Sport Tudo!', ' 🦁 Você acertou a palavra! 🦁');
+      }
     }
-
-    const novoTabuleiro = [...tabuleiro];
-    novoTabuleiro[linha] = [...novoTabuleiro[linha]];
-    novoTabuleiro[linha][col] = numero;
-    setTabuleiro(novoTabuleiro);
-
-    verificarFimDeJogo(novoTabuleiro);
   };
 
-  const renderCelula = (numero: number, linha: number, col: number) => {
-    const ehFixo = JOGO_INICIAL[linha][col] !== 0;
-    const estaSelecionado = selecionado && selecionado[0] === linha && selecionado[1] === col;
-    const bordaDireita = (col + 1) % 3 === 0 && col !== 8 ? 2 : 0.5;
-    const bordaBaixo = (linha + 1) % 3 === 0 && linha !== 8 ? 2 : 0.5;
-
+  const renderBoneco = () => {
     return (
-      <TouchableOpacity
-        key={`${linha}-${col}`}
-        style={[
-          styles.celula,
-          {
-            borderRightWidth: bordaDireita,
-            borderBottomWidth: bordaBaixo,
-            backgroundColor: estaSelecionado ? '#bbdefb' : ehFixo ? '#e0e0e0' : '#fff',
-          },
-        ]}
-        onPress={() => setSelecionado([linha, col])}
-      >
-        <Text
-          style={[
-            styles.textoCelula,
-            { color: ehFixo ? '#000' : '#098605ff', fontWeight: ehFixo ? 'bold' : 'normal' },
-          ]}
-        >
-          {numero !== 0 ? numero : ''}
-        </Text>
-      </TouchableOpacity>
+      <View style={styles.forcaArea}>
+        <View style={styles.posteVertical} />
+        <View style={styles.posteTopo} />
+        <View style={styles.corda} />
+        <View style={styles.base} />
+
+        {erros >= 1 && <View style={styles.cabeca} />}
+        {erros >= 2 && <View style={styles.corpo} />}
+        {erros >= 3 && <View style={styles.bracoEsq} />}
+        {erros >= 4 && <View style={styles.bracoDir} />}
+        {erros >= 5 && <View style={styles.pernaEsq} />}
+        {erros >= 6 && <View style={styles.pernaDir} />}
+      </View>
     );
   };
 
   return (
-    <View style={styles.container}>
-      <Stack.Screen options={{ title: 'Sudoku' }} />
+    <ImageBackground 
+      source={require('../asset/images/ilha.png')}
+      style={styles.imagemFundo}
+      resizeMode="cover"
+    >
+      <ScrollView contentContainerStyle={styles.container}>
+        <Stack.Screen options={{ 
+          title: 'Forca do Leão',
+          headerStyle: { backgroundColor: '#D32F2F' }, 
+          headerTintColor: '#fff'
+        }} />
+        
+        <Text style={styles.titulo}>FORCA DO LEÃO 🦁</Text>
 
-      <Text style={styles.titulo}>Sudoku, só pra quem é inteligente</Text>
-      
-      <View style={styles.tabuleiroContainer}>
-        {tabuleiro.map((linha, indexLinha) => (
-          <View key={indexLinha} style={styles.linha}>
-            {linha.map((num, indexCol) => renderCelula(num, indexLinha, indexCol))}
-          </View>
-        ))}
-      </View>
+        {renderBoneco()}
 
-      <View style={styles.controles}>
-        <View style={styles.teclado}>
-          {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
-            <TouchableOpacity
-              key={num}
-              style={styles.botaoTeclado}
-              onPress={() => preencherNumero(num)}
-            >
-              <Text style={styles.textoBotao}>{num}</Text>
-            </TouchableOpacity>
+        <View style={styles.palavraContainer}>
+          {palavra.split('').map((char, index) => (
+            <Text key={index} style={styles.letraOculta}>
+              {char === ' ' ? ' ' : letrasAdivinhadas.includes(char) || statusJogo === 'perdeu' ? char : '_'}
+            </Text>
           ))}
-          <TouchableOpacity
-            style={[styles.botaoTeclado, styles.botaoApagar]}
-            onPress={() => preencherNumero(null)}
-          >
-            <Text style={[styles.textoBotao, styles.textoApagar]}>X</Text>
-          </TouchableOpacity>
         </View>
 
-        <TouchableOpacity style={styles.botaoReiniciar} onPress={reiniciarJogo}>
-          <Text style={styles.textoReiniciar}>Reiniciar Jogo</Text>
+        <View style={styles.teclado}>
+          {'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('').map((letra) => {
+            const foiUsada = letrasAdivinhadas.includes(letra);
+            const ehCorreta = palavra.includes(letra);
+            
+            return (
+              <TouchableOpacity
+                key={letra}
+                disabled={foiUsada || statusJogo !== 'jogando'}
+                onPress={() => chutarLetra(letra)}
+                style={[
+                  styles.tecla,
+                  foiUsada && (ehCorreta ? styles.teclaCorreta : styles.teclaErrada)
+                ]}
+              >
+                <Text style={[styles.teclaTexto, foiUsada && styles.teclaTextoUsada]}>
+                  {letra}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+
+        <TouchableOpacity style={styles.botaoReiniciar} onPress={iniciarJogo}>
+          <Text style={styles.textoReiniciar}>NOVO JOGO</Text>
         </TouchableOpacity>
-      </View>
-    </View>
+
+      </ScrollView>
+    </ImageBackground>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  imagemFundo: {
     flex: 1,
-    backgroundColor: '#fff',
+    width: '100%',
+    height: '100%',
+  },
+  container: {
+    flexGrow: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.85)',
     alignItems: 'center',
-    justifyContent: 'center',
-    padding: 10,
+    padding: 20,
   },
   titulo: {
     fontSize: 24,
     fontWeight: 'bold',
+    color: '#D32F2F', 
     marginBottom: 20,
-    marginTop: 20,
-    color: '#333',
+    marginTop: 10,
+    textShadowColor: 'rgba(0, 0, 0, 0.2)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 2,
   },
-  tabuleiroContainer: {
-    borderWidth: 2,
-    borderColor: '#000',
+  forcaArea: {
+    width: 200,
+    height: 250,
+    marginBottom: 30,
+    position: 'relative',
   },
-  linha: {
+  base: {
+    position: 'absolute',
+    bottom: 0,
+    left: 20,
+    width: 100,
+    height: 5,
+    backgroundColor: '#333',
+  },
+  posteVertical: {
+    position: 'absolute',
+    bottom: 0,
+    left: 70,
+    width: 5,
+    height: 250,
+    backgroundColor: '#333',
+  },
+  posteTopo: {
+    position: 'absolute',
+    top: 0,
+    left: 70,
+    width: 80,
+    height: 5,
+    backgroundColor: '#333',
+  },
+  corda: {
+    position: 'absolute',
+    top: 0,
+    right: 50,
+    width: 3,
+    height: 40,
+    backgroundColor: '#8B4513',
+  },
+  cabeca: {
+    position: 'absolute',
+    top: 40,
+    right: 36,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    borderWidth: 3,
+    borderColor: '#D32F2F',
+  },
+  corpo: {
+    position: 'absolute',
+    top: 70,
+    right: 50,
+    width: 3,
+    height: 50,
+    backgroundColor: '#D32F2F',
+  },
+  bracoEsq: {
+    position: 'absolute',
+    top: 80,
+    right: 52,
+    width: 30,
+    height: 3,
+    backgroundColor: '#D32F2F',
+    transform: [{ rotate: '-30deg' }],
+  },
+  bracoDir: {
+    position: 'absolute',
+    top: 80,
+    right: 20,
+    width: 30,
+    height: 3,
+    backgroundColor: '#D32F2F',
+    transform: [{ rotate: '30deg' }],
+  },
+  pernaEsq: {
+    position: 'absolute',
+    top: 115,
+    right: 52,
+    width: 30,
+    height: 3,
+    backgroundColor: '#D32F2F',
+    transform: [{ rotate: '-45deg' }],
+  },
+  pernaDir: {
+    position: 'absolute',
+    top: 115,
+    right: 20,
+    width: 30,
+    height: 3,
+    backgroundColor: '#D32F2F',
+    transform: [{ rotate: '45deg' }],
+  },
+  palavraContainer: {
     flexDirection: 'row',
-  },
-  celula: {
-    width: 35,
-    height: 35,
-    borderWidth: 0.5,
-    borderColor: '#000',
-    alignItems: 'center',
+    flexWrap: 'wrap',
     justifyContent: 'center',
+    marginBottom: 30,
+    gap: 5,
   },
-  textoCelula: {
-    fontSize: 18,
-  },
-  controles: {
-    marginTop: 30,
-    alignItems: 'center',
-    width: '100%',
+  letraOculta: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#000',
+    minWidth: 20,
+    textAlign: 'center',
+    borderBottomWidth: 2,
+    borderBottomColor: '#333',
   },
   teclado: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'center',
-    maxWidth: 300,
+    gap: 8,
   },
-  botaoTeclado: {
-    width: 50,
-    height: 50,
-    margin: 5,
+  tecla: {
+    width: 35,
+    height: 40,
     backgroundColor: '#f0f0f0',
-    borderRadius: 25,
-    alignItems: 'center',
     justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 5,
+    borderWidth: 1,
+    borderColor: '#ccc',
     elevation: 2,
   },
-  botaoApagar: {
-    backgroundColor: '#ffebee',
+  teclaCorreta: {
+    backgroundColor: '#4CAF50',
+    borderColor: '#388E3C',
   },
-  textoBotao: {
-    fontSize: 20,
+  teclaErrada: {
+    backgroundColor: '#D32F2F',
+    borderColor: '#B71C1C',
+  },
+  teclaTexto: {
+    fontSize: 18,
     fontWeight: 'bold',
     color: '#333',
   },
-  textoApagar: {
-    color: '#d32f2f',
+  teclaTextoUsada: {
+    color: '#fff',
   },
   botaoReiniciar: {
-    marginTop: 20,
-    paddingVertical: 10,
+    marginTop: 30,
+    backgroundColor: '#000',
+    paddingVertical: 12,
     paddingHorizontal: 30,
-    backgroundColor: '#007AFF',
     borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#FFD700',
   },
   textoReiniciar: {
-    color: '#fff',
-    fontSize: 16,
+    color: '#FFD700',
     fontWeight: 'bold',
+    fontSize: 16,
   },
 });
