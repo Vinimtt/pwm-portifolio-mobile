@@ -72,7 +72,7 @@ export default function JogoForca() {
 
   return (
     <ImageBackground 
-      source={require('../asset/images/ilha.png')}
+      source={require('../assets/images/ilha.png')}
       style={styles.imagemFundo}
       resizeMode="cover"
     >
